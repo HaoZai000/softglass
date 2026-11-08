@@ -17,3 +17,7 @@ Thumbs.db
 iosApp/build/
 DerivedData/
 *.xcuserdatad/
+
+# 测试源码不进仓库（仅本地保留）
+src/commonTest/
+src/jvmTest/
