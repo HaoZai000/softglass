@@ -1,9 +1,6 @@
 # JitPack 构建配置
-#
-# iOS 目标需要 Kotlin/Native 工具链，会显著拉长构建时间；JitPack 上只出版
-# android + jvm，iOS 制品由本地 / CI 单独发布。
 jdk:
   - openjdk17
 
 install:
-  - ./gradlew publishToMavenLocal -Psoftglass.ios=false
+  - ./gradlew publishToMavenLocal
