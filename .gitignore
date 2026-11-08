@@ -1,0 +1,19 @@
+# Gradle / 构建产物
+build/
+.gradle/
+.kotlin/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Xcode
+iosApp/build/
+DerivedData/
+*.xcuserdatad/
