@@ -1,6 +1,9 @@
 # JitPack 构建配置
+#
+# 只出 android + jvm：Kotlin/Native 的 iOS 目标只能在 macOS 主机上编译，
+# JitPack 的构建机是 Linux，注册 iOS target 只会让整次构建失败。
 jdk:
   - openjdk17
 
 install:
-  - ./gradlew publishToMavenLocal
+  - ./gradlew publishToMavenLocal -Psoftglass.ios=false
