@@ -46,8 +46,16 @@ const float3 GLASS_LUMA = float3(0.2126, 0.7152, 0.0722);
 
 float luma(float3 c) { return dot(c, GLASS_LUMA); }
 
+// 采样层是透明底的：没画任何东西的地方是预乘 (0,0,0,0)。
+// 只取 rgb 会把「透明」当成纯黑喂给后面的调色，所以这里先还原非预乘色，
+// 覆盖度（alpha）单独返回，由 main 收窄输出 alpha，让空内容处透出真实背景。
+float4 sampleContentRGBA(float2 p) {
+    float4 s = content.eval(clamp(p, float2(0.5), uSize - 0.5));
+    return float4(s.rgb / max(s.a, 1e-4), s.a);
+}
+
 float3 sampleContent(float2 p) {
-    return content.eval(clamp(p, float2(0.5), uSize - 0.5)).rgb;
+    return sampleContentRGBA(p).rgb;
 }
 
 // 大模糊底：控件脚下只有一张内容，用绕一圈的 5 点平均近似卡片侧的粗级纹理。
@@ -145,9 +153,15 @@ half4 main(float2 fragCoord) {
         ? float3(0.0, 0.0, 1.0)
         : normalize(float3(nxy.x, nxy.y, 1.0));
 
+    // 中心只采一次：颜色给内区 / 大模糊底色用，alpha 就是这一像素的「有内容」覆盖度。
+    // 覆盖度用 smoothstep 收一下：只有整片邻域都空（采到全透明）才把玻璃压透明，
+    // 半透明内容（≥ 0.25）仍按不透明输出，现有玻璃观感不变。
+    float4 centerSample = sampleContentRGBA(fragCoord);
+    float coverage = smoothstep(0.0, 0.25, centerSample.a);
+
     float3 refractionCol;
     if (inner) {
-        refractionCol = sampleContent(fragCoord);
+        refractionCol = centerSample.rgb;
     } else {
         float3 refractDir = miRefract(float3(0.0, 0.0, -1.0), normal, 1.0 / uIOR);
         float refractThickness = mix((uThicknessPx - uEdgePx) * 2.0, uThicknessPx * 2.0, w);
@@ -167,9 +181,7 @@ half4 main(float2 fragCoord) {
         materialRgb = addLight(materialRgb, reflectionCol, (1.0 - w) * uReflLighten);
     }
 
-    float3 bigCenter;
-    if (inner) { bigCenter = refractionCol; } else { bigCenter = sampleContent(fragCoord); }
-    float3 bigCol = contentBig(fragCoord, bigCenter);
+    float3 bigCol = contentBig(fragCoord, centerSample.rgb);
 
     float4 glassMaterial = processGlassColor(materialRgb, bigCol);
 
@@ -184,7 +196,8 @@ half4 main(float2 fragCoord) {
         glassMaterial = pow(glassMaterial, float4(uColorPow));
     }
     glassMaterial.rgb = mix(clamp(glassMaterial.rgb, float3(0.0), float3(1.0)), uGlassColor.rgb, uUnshade);
-    glassMaterial.a *= uAlpha * finalAlpha;
+    // 空内容处 coverage 为 0：整块玻璃透明，透出真实背景，而不是画成纯黑
+    glassMaterial.a *= uAlpha * finalAlpha * coverage;
 
     return half4(glassMaterial.rgb * glassMaterial.a, glassMaterial.a);
 }
